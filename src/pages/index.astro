@@ -1,0 +1,29 @@
+---
+import { loadTypeTesterQuery, TypeTesterPreloaded } from 'fontdue-js/TypeTester/preload';
+import Layout from '../layouts/Layout.astro';
+
+const [preloadedA, preloadedB] = await Promise.all([
+  loadTypeTesterQuery({ familyName: 'IBM Plex Sans', styleName: 'Regular' }),
+  loadTypeTesterQuery({ familyName: 'IBM Plex Sans', styleName: 'Regular' }),
+]);
+---
+
+<Layout>
+  <h1>fontdue-js TypeTester on Astro</h1>
+  <div class="tester">
+    <TypeTesterPreloaded
+      client:load
+      preloadedQuery={preloadedA}
+      content="The quick brown fox jumps over the lazy dog"
+      fontSize={64}
+    />
+  </div>
+  <div class="tester">
+    <TypeTesterPreloaded
+      client:load
+      preloadedQuery={preloadedB}
+      content="Sphinx of black quartz, judge my vow"
+      fontSize={48}
+    />
+  </div>
+</Layout>
