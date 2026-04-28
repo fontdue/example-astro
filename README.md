@@ -64,7 +64,12 @@ export default defineConfig({
 });
 ```
 
-**Why:** fontdue-js publishes per-file ESM (no bundler at our publish step). Some of its transitive deps (`react-relay`, `draft-js`, `fbjs`) are CJS and use re-export shapes that Node's strict ESM-CJS interop can't named-import from. Vite's default SSR behavior is to externalize node_modules and let Node load them — which crashes with `Named export 'X' not found. The requested module is a CommonJS module`. The `fontdueJs()` plugin sets `ssr.noExternal` for fontdue-js plus its CJS-shaped deps, routing them through Vite's commonjs plugin which handles named imports correctly.
+**Why:** fontdue-js publishes per-file ESM (no bundler at our publish step). Some of its transitive deps (`react-relay`, `relay-runtime`, `draft-js`, `fbjs`) are CJS and use `module.exports = require('./lib')` re-export shapes that defeat strict ESM named-import resolution in both Node SSR and browser contexts. The `fontdueJs()` plugin wires up:
+
+- `vite-plugin-cjs-interop` to rewrite named imports of those deps to default-import + destructure.
+- `ssr.noExternal: ['fontdue-js']` so the cjs-interop transform runs over fontdue-js's own source (otherwise Vite externalizes it and Node tries to named-import from CJS directly).
+- `optimizeDeps.include` for the same set plus `react-redux`, so esbuild pre-bundles them for the browser.
+- `define: { global: 'globalThis' }` because `fbjs` (transitive via `draft-js`) references Node's `global` at module init.
 
 ## Astro requirements
 
@@ -74,4 +79,4 @@ export default defineConfig({
 
 ## Status
 
-This example tracks the `framework-agnostic-fontdue-js` branch of fontage. It currently installs fontdue-js from a local tarball (`file:../fontage/fontdue-js/...tgz`) — once that branch ships to npm, the dependency will become a normal `^x.y.z` reference.
+This example tracks `fontdue-js@3.0.0-alpha1`, the first prerelease of the framework-agnostic preload API (Linear FD-537). The 3.x line is alpha until the surface stabilizes — pin a specific version while we iterate.
