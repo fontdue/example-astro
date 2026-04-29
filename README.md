@@ -133,8 +133,19 @@ export default defineConfig({
 ## Astro requirements
 
 - `output: 'server'` (or `'hybrid'` with the page opted in) — the preload runs in frontmatter, which needs SSR.
-- An SSR adapter — this example uses `@astrojs/node` in `standalone` mode.
+- An SSR adapter — this example uses `@astrojs/netlify`. Any SSR adapter works; nothing in the integration depends on the target.
 - `@astrojs/react` for the React renderer.
+
+## Deploying to Netlify
+
+This example is wired for Netlify SSR. To deploy a fork:
+
+1. **Build settings** (Netlify UI):
+   - Build command: `npm run build`
+   - Publish directory: `dist`
+   - Base directory and Functions directory: leave blank — `@astrojs/netlify` writes the SSR function to the right place automatically.
+2. **Environment variables**: add `PUBLIC_FONTDUE_URL` under Site configuration → Environment variables. `PUBLIC_*` vars are inlined at build time by Vite, so it must be set before the first build runs.
+3. **CORS allow-list**: once Netlify gives you the deploy URL (e.g. `https://your-site.netlify.app`), add it to your Fontdue tenant's allowed origins. If you want PR previews to work, allow-list the `https://deploy-preview-*--your-site.netlify.app` pattern too.
 
 ## Status
 
