@@ -6,10 +6,11 @@ This is one of the integration POCs for the framework-agnostic preload API (Line
 
 ## What it demonstrates
 
-- Two TypeTester islands on one page, both server-rendered, both hydrating without a refetch.
-- The unified TypeTester entry (`fontdue-js/TypeTester`) used directly from an `.astro` page — same import path for both the loader and the component.
-- Backend URL configured once in middleware via `configure({ url })`. No URL passed at the call site.
+- Multiple fontdue-js islands on one page (TypeTester / TypeTesters / CharacterViewer / BuyButton / TestFontsForm / NewsletterSignup / CartButton), all server-rendered, all hydrating without a refetch.
+- The unified component entry (`fontdue-js/TypeTester` etc.) used directly from `.astro` files — same import path yields both the loader (`load*Query`) and the component (default export).
+- Backend URL set once via the `PUBLIC_FONTDUE_URL` env var; fontdue-js auto-reads it from `import.meta.env` on both server and client. No `configure()` call.
 - Direct GraphQL fetches from Astro frontmatter alongside the fontdue-js preload helpers (`src/lib/graphql.ts` + `src/queries/*.graphql`) — equivalent to the `async function` pattern in the Next.js App Router example.
+- Stale-while-revalidate caching at Netlify's CDN with on-demand `purgeCache` via `POST /api/revalidate` wired to Fontdue's deploy hook.
 
 ## Setup
 
@@ -29,7 +30,7 @@ Three files do the work:
 
 - **`.env`** — `PUBLIC_FONTDUE_URL` is the tenant origin. The `PUBLIC_` prefix exposes it to client code (Astro convention); fontdue-js auto-reads `PUBLIC_FONTDUE_URL` / `VITE_FONTDUE_URL` from `import.meta.env` on both server and client. No explicit `configure()` call needed.
 
-- **`src/layouts/Layout.astro`** — preloads aux UI data (theme custom properties, test-mode flag, server-side tracking config) and renders the `<FontdueProvider>` island. This is the layout-level Fontdue runtime; it commits the preloaded payload to the Relay env on hydration so theme/banner/tracking render without a flash.
+- **`src/layouts/Layout.astro`** — preloads aux UI data (theme custom properties, test-mode flag, server-side tracking config, cart count) and renders the `<FontdueProvider>` and `<CartButton>` islands plus a closed `<StoreModal>`. This is the layout-level Fontdue runtime; it commits the preloaded payload to the Relay env on hydration so theme/banner/tracking render without a flash.
 
   ```astro
   ---
@@ -88,7 +89,7 @@ Calling it from `src/pages/index.astro`:
 ---
 import { fetchGraphql } from '../lib/graphql';
 import IndexDoc from '../queries/Index.graphql?raw';
-import type { IndexQuery } from '../queries/types';
+import type { IndexQuery } from '../queries/operations-types';
 
 const data = await fetchGraphql<IndexQuery>('Index', IndexDoc);
 const collections = data.viewer.fontCollections?.edges
@@ -133,7 +134,7 @@ export default defineConfig({
 ## Astro requirements
 
 - `output: 'server'` (or `'hybrid'` with the page opted in) — the preload runs in frontmatter, which needs SSR.
-- An SSR adapter — this example uses `@astrojs/netlify`. Any SSR adapter works; nothing in the integration depends on the target.
+- An SSR adapter — this example uses `@astrojs/netlify`. The fontdue-js integration itself is adapter-agnostic; only the cache headers in `src/middleware.ts` and the `purgeCache` call in `src/pages/api/revalidate.ts` are Netlify-specific.
 - `@astrojs/react` for the React renderer.
 
 ## Deploying to Netlify
@@ -170,4 +171,4 @@ Today the Fontdue API doesn't include a collection id/slug in the deploy-hook pa
 
 ## Status
 
-This example tracks `fontdue-js@3.0.0-alpha1`, the first prerelease of the framework-agnostic preload API (Linear FD-537). The 3.x line is alpha until the surface stabilizes — pin a specific version while we iterate.
+This example tracks `fontdue-js@3.0.0-alpha2`, an early prerelease of the framework-agnostic preload API (Linear FD-537). The 3.x line is alpha until the surface stabilizes — pin a specific version while we iterate.
