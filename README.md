@@ -156,13 +156,17 @@ Netlify-CDN-Cache-Control: public, max-age=0, s-maxage=300, stale-while-revalida
 Netlify-Cache-Tag: fontdue
 ```
 
-After the SWR window the edge serves the stale copy and regenerates in the background — the user never waits for the upstream GraphQL call. To force a refresh on demand (e.g. when fonts change in your Fontdue admin), call:
+After the SWR window the edge serves the stale copy and regenerates in the background — the user never waits for the upstream GraphQL call. To force a refresh on demand (e.g. when fonts change in your Fontdue admin), `src/pages/api/revalidate.ts` validates the `token` query param against `REVALIDATE_TOKEN` and calls Netlify's `purgeCache({ tags: ['fontdue'] })`.
 
-```sh
-curl -X POST "https://your-site.netlify.app/api/revalidate?token=$REVALIDATE_TOKEN"
+Wire it up in Fontdue: **Website settings → Deploy hook URL**. Paste:
+
+```
+https://your-site.netlify.app/api/revalidate?token=YOUR_REVALIDATE_TOKEN
 ```
 
-`src/pages/api/revalidate.ts` validates the `token` query param against `REVALIDATE_TOKEN` and calls Netlify's `purgeCache({ tags: ['fontdue'] })`. Today the Fontdue API doesn't include a collection id/slug in change notifications, so every page is purged together; if/when it does, switch to per-collection tags (`fontdue:${slug}`) and purge selectively.
+Fontdue will `POST` to this URL whenever you publish changes; cached HTML on Netlify's edge is invalidated and the next request regenerates against fresh data.
+
+Today the Fontdue API doesn't include a collection id/slug in the deploy-hook payload, so every page is purged together. If/when it does, switch to per-collection tags (`fontdue:${slug}`) and purge selectively.
 
 ## Status
 
