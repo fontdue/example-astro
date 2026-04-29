@@ -1,0 +1,32 @@
+---
+import Layout from '../layouts/Layout.astro';
+import TestFontsForm, { loadTestFontsFormQuery } from 'fontdue-js/TestFontsForm';
+import NewsletterSignup, {
+  loadNewsletterSignupQuery,
+} from 'fontdue-js/NewsletterSignup';
+
+const [testFontsPreload, newsletterPreload] = await Promise.all([
+  loadTestFontsFormQuery(),
+  loadNewsletterSignupQuery(),
+]);
+---
+
+<Layout title="Test fonts — fontdue-js on Astro">
+  <h1>Test fonts</h1>
+  <p>Two preloaded forms — both hydrate without re-fetching their settings.</p>
+
+  <h2>Test fonts form</h2>
+  <div class="tester">
+    <TestFontsForm client:load preloadedQuery={testFontsPreload} />
+  </div>
+
+  <h2>Newsletter signup</h2>
+  <div class="tester">
+    <NewsletterSignup
+      client:load
+      preloadedQuery={newsletterPreload}
+      title="Join the newsletter"
+      intro="Get notified about new releases."
+    />
+  </div>
+</Layout>

@@ -1,17 +1,24 @@
 ---
-import { loadTypeTesterQuery, TypeTesterPreloaded } from 'fontdue-js/TypeTester/preload';
+import TypeTester, { loadTypeTesterQuery } from 'fontdue-js/TypeTester';
 import Layout from '../layouts/Layout.astro';
 
 const [preloadedA, preloadedB] = await Promise.all([
   loadTypeTesterQuery({ familyName: 'IBM Plex Sans', styleName: 'Regular' }),
-  loadTypeTesterQuery({ familyName: 'IBM Plex Sans', styleName: 'Regular' }),
+  loadTypeTesterQuery({ familyName: 'Rubik', styleName: 'Regular' }),
 ]);
 ---
 
 <Layout>
-  <h1>fontdue-js TypeTester on Astro</h1>
+  <h1>fontdue-js on Astro</h1>
+  <p>
+    Demo pages exercising the unified preload API. Each component below is
+    served with a server-preloaded Relay query — no GraphQL fetches fire on
+    hydration.
+  </p>
+
+  <h2>TypeTester (preloaded)</h2>
   <div class="tester">
-    <TypeTesterPreloaded
+    <TypeTester
       client:load
       preloadedQuery={preloadedA}
       content="The quick brown fox jumps over the lazy dog"
@@ -19,7 +26,7 @@ const [preloadedA, preloadedB] = await Promise.all([
     />
   </div>
   <div class="tester">
-    <TypeTesterPreloaded
+    <TypeTester
       client:load
       preloadedQuery={preloadedB}
       content="Sphinx of black quartz, judge my vow"

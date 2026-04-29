@@ -1,0 +1,51 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import TypeTesters, { loadTypeTestersQuery } from 'fontdue-js/TypeTesters';
+import CharacterViewer, {
+  loadCharacterViewerQuery,
+} from 'fontdue-js/CharacterViewer';
+import BuyButton, { loadBuyButtonQuery } from 'fontdue-js/BuyButton';
+
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/');
+
+// Three independent server-preloaded queries fire in parallel during the
+// route's render. Each component receives its own preloaded payload — the
+// FontdueProvider in Layout.astro hydrates the shared aux UI separately.
+const [typeTestersPreload, characterViewerPreload, buyButtonPreload] =
+  await Promise.all([
+    loadTypeTestersQuery({ collectionSlug: slug }),
+    loadCharacterViewerQuery({ collectionSlug: slug }),
+    loadBuyButtonQuery({ collectionSlug: slug }),
+  ]);
+---
+
+<Layout title={`${slug} — fontdue-js on Astro`}>
+  <h1>{slug}</h1>
+  <p>
+    Font detail with server-preloaded TypeTesters, CharacterViewer, and a
+    BuyButton.
+  </p>
+
+  <div style="margin-top: 1rem;">
+    <BuyButton
+      client:load
+      preloadedQuery={buyButtonPreload}
+      collectionName={slug}
+    />
+  </div>
+
+  <h2>TypeTesters</h2>
+  <div class="tester">
+    <TypeTesters
+      client:load
+      preloadedQuery={typeTestersPreload}
+      defaultMode="local"
+    />
+  </div>
+
+  <h2>Character viewer</h2>
+  <div class="tester">
+    <CharacterViewer client:load preloadedQuery={characterViewerPreload} />
+  </div>
+</Layout>

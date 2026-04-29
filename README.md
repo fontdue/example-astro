@@ -7,7 +7,7 @@ This is one of the integration POCs for the framework-agnostic preload API (Line
 ## What it demonstrates
 
 - Two TypeTester islands on one page, both server-rendered, both hydrating without a refetch.
-- The fontdue-js preload entry (`fontdue-js/TypeTester/preload`) used directly from an `.astro` page.
+- The unified TypeTester entry (`fontdue-js/TypeTester`) used directly from an `.astro` page — same import path for both the loader and the component.
 - Backend URL configured once in middleware via `configure({ url })`. No URL passed at the call site.
 
 ## Setup
@@ -24,30 +24,44 @@ The default `.env.example` points at `https://example.fontdue.xyz`, which has CO
 
 ## How the integration is wired
 
-Four files do the work:
+Three files do the work:
 
-- **`.env`** — `PUBLIC_FONTDUE_URL` is the tenant origin. The `PUBLIC_` prefix exposes it to client code (Astro convention); fontdue-js's client-side runtime auto-reads `PUBLIC_FONTDUE_URL` / `VITE_FONTDUE_URL` from `import.meta.env`.
+- **`.env`** — `PUBLIC_FONTDUE_URL` is the tenant origin. The `PUBLIC_` prefix exposes it to client code (Astro convention); fontdue-js auto-reads `PUBLIC_FONTDUE_URL` / `VITE_FONTDUE_URL` from `import.meta.env` on both server and client. No explicit `configure()` call needed.
 
-- **`src/middleware.ts`** — calls `configure({ url })` once at module load. This is the URL the server-side preload uses. Astro reads `import.meta.env.PUBLIC_FONTDUE_URL` directly here; no `process.env` plumbing needed.
-
-- **`src/layouts/Layout.astro`** — imports `fontdue-js/fontdue.css` once for every page that uses the layout. Pages then just wrap their content in `<Layout>…</Layout>` and don't need to think about the stylesheet.
-
-- **`src/pages/index.astro`** — the integration shape consumers will write:
+- **`src/layouts/Layout.astro`** — preloads aux UI data (theme custom properties, test-mode flag, server-side tracking config) and renders the `<FontdueProvider>` island. This is the layout-level Fontdue runtime; it commits the preloaded payload to the Relay env on hydration so theme/banner/tracking render without a flash.
 
   ```astro
   ---
-  import { loadTypeTesterQuery, TypeTesterPreloaded } from 'fontdue-js/TypeTester/preload';
+  import 'fontdue-js/fontdue.css';
+  import { loadFontdueProviderQuery } from 'fontdue-js';
+  import FontdueProvider from 'fontdue-js/FontdueProvider';
+
+  const fontduePreload = await loadFontdueProviderQuery();
+  ---
+  <html>
+    <body>
+      <FontdueProvider client:load preloadedQuery={fontduePreload} />
+      <slot />
+    </body>
+  </html>
+  ```
+
+- **`src/pages/index.astro`** — per-page component preloads:
+
+  ```astro
+  ---
+  import TypeTester, { loadTypeTesterQuery } from 'fontdue-js/TypeTester';
   import Layout from '../layouts/Layout.astro';
 
   const preloaded = await loadTypeTesterQuery({ familyName: '…', styleName: '…' });
   ---
 
   <Layout>
-    <TypeTesterPreloaded client:load preloadedQuery={preloaded} content="…" fontSize={64} />
+    <TypeTester client:load preloadedQuery={preloaded} content="…" fontSize={64} />
   </Layout>
   ```
 
-  `loadTypeTesterQuery` runs in the Astro frontmatter (server). `TypeTesterPreloaded` renders server-side as HTML, then `client:load` hydrates it on the client using the same preloaded payload — no network call on hydration. Multiple islands on the same page share one Relay environment + one Redux store under the hood, so auxiliary queries (theme, test-mode banner) only fire once.
+  `loadTypeTesterQuery` runs in the Astro frontmatter (server). `<TypeTester>` renders server-side as HTML, then `client:load` hydrates with the preloaded payload — no network call on hydration. Multiple islands on the same page share one Relay env + one Redux store via module-level singletons. The same `<TypeTester>` import works inside an existing `<FontdueProvider>` tree (e.g. Next layouts) using the lazy `{familyName, styleName}` shape — it auto-detects the parent provider and skips its own self-wrap.
 
 ## Required Vite SSR config
 
