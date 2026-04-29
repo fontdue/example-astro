@@ -1,36 +1,101 @@
 ---
 import TypeTester, { loadTypeTesterQuery } from 'fontdue-js/TypeTester';
 import Layout from '../layouts/Layout.astro';
+import { fetchGraphql } from '../lib/graphql';
+import IndexDoc from '../queries/Index.graphql?raw';
+import type { IndexQuery } from '../queries/operations-types';
 
-const [preloadedA, preloadedB] = await Promise.all([
-  loadTypeTesterQuery({ familyName: 'IBM Plex Sans', styleName: 'Regular' }),
-  loadTypeTesterQuery({ familyName: 'Rubik', styleName: 'Regular' }),
-]);
+// Frontmatter is the SSR data layer: a regular GraphQL fetch and the
+// fontdue-js Relay preloads run together in one Promise.all. The Relay
+// payloads hydrate the islands without an extra round-trip; the GraphQL
+// data drives the static markup of the page.
+const indexData = await fetchGraphql<IndexQuery>('Index', IndexDoc);
+
+const collections =
+  indexData.viewer.fontCollections?.edges?.flatMap((edge) =>
+    edge?.node && edge.node.slug ? [edge.node] : [],
+  ) ?? [];
+
+// Demo: hydrate a TypeTester for the first two collections returned by
+// the API instead of hard-coding family/style names.
+const testerCollections = collections
+  .filter((c) => c.featureStyle?.cssFamily && c.featureStyle.name)
+  .slice(0, 2);
+
+const testerPreloads = await Promise.all(
+  testerCollections.map((c) =>
+    loadTypeTesterQuery({
+      familyName: c.featureStyle!.cssFamily!,
+      styleName: c.featureStyle!.name!,
+    }),
+  ),
+);
+
+// Inject @font-face for each collection's feature style so the homepage
+// can render collection names in their own font without an extra island.
+const featureFontFaces = collections
+  .map((c) => {
+    const style = c.featureStyle;
+    const src = style?.webfontSources?.find((s) => s?.format === 'woff2');
+    if (!style || !src?.url) return '';
+    return `@font-face {
+      font-family: "${style.cssFamily} ${style.name}";
+      src: url(${src.url}) format("woff2");
+      font-weight: 400; font-style: normal;
+    }`;
+  })
+  .filter(Boolean)
+  .join('\n');
 ---
 
-<Layout>
-  <h1>fontdue-js on Astro</h1>
+<Layout title="Fonts">
+  {featureFontFaces && <style is:inline set:html={featureFontFaces} />}
+
+  <h1>Fonts</h1>
   <p>
-    Demo pages exercising the unified preload API. Each component below is
-    served with a server-preloaded Relay query — no GraphQL fetches fire on
-    hydration.
+    Server-rendered from <code>Index.graphql</code>. Each collection name is
+    set in its own feature style; the type testers below are server-preloaded
+    Relay islands.
   </p>
 
-  <h2>TypeTester (preloaded)</h2>
-  <div class="tester">
-    <TypeTester
-      client:load
-      preloadedQuery={preloadedA}
-      content="The quick brown fox jumps over the lazy dog"
-      fontSize={64}
-    />
-  </div>
-  <div class="tester">
-    <TypeTester
-      client:load
-      preloadedQuery={preloadedB}
-      content="Sphinx of black quartz, judge my vow"
-      fontSize={48}
-    />
-  </div>
+  <section class="home">
+    {collections.map((node) => (
+      <h2 class="home__collection" style={`--optical-adjustment: ${node.opticalAdjustment ?? 0};`}>
+        <a
+          href={`/fonts/${node.slug!.name}`}
+          style={`font-family: "${node.featureStyle?.cssFamily} ${node.featureStyle?.name}", system-ui, sans-serif;`}
+        >
+          {node.name}
+        </a>
+        {node.isNew && <span class="home__new">&nbsp;New</span>}
+      </h2>
+    ))}
+  </section>
+
+  {testerCollections.length > 0 && (
+    <>
+      <h2>Try them out</h2>
+      {testerCollections.map((c, i) => (
+        <div class="tester">
+          <p style="margin: 0 0 0.5rem; color: #666; font-size: 0.875rem;">
+            {c.name} — {c.featureStyle?.name}
+          </p>
+          <TypeTester
+            client:load
+            preloadedQuery={testerPreloads[i]}
+            content={`The quick brown fox jumps over the lazy dog`}
+            fontSize={48}
+          />
+        </div>
+      ))}
+    </>
+  )}
 </Layout>
+
+<style>
+  .home { display: flex; flex-direction: column; gap: 0.5rem; margin: 1.5rem 0; }
+  .home__collection { font-size: 2.5rem; margin: 0; line-height: 1.1; }
+  .home__collection a { color: inherit; text-decoration: none; }
+  .home__collection a:hover { text-decoration: underline; }
+  .home__new { color: #c00; font-size: 0.75rem; vertical-align: super; }
+</style>

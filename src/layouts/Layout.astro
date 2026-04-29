@@ -4,71 +4,141 @@ import { loadFontdueProviderQuery } from 'fontdue-js';
 import FontdueProvider from 'fontdue-js/FontdueProvider';
 import StoreModal from 'fontdue-js/StoreModal';
 import CartButton, { loadCartButtonQuery } from 'fontdue-js/CartButton';
+import { fetchGraphql } from '../lib/graphql';
+import RootLayoutDoc from '../queries/RootLayout.graphql?raw';
+import type { RootLayoutQuery } from '../queries/operations-types';
 
 interface Props {
   title?: string;
 }
 
-const { title = 'fontdue-js on Astro' } = Astro.props;
+const { title } = Astro.props;
 
-// Layout-level preloads: theme custom properties + cart count, fetched once
-// per request. The FontdueProvider commits the aux-UI payload into the client
-// Relay env on hydration; CartButton receives its own preloadedQuery so the
-// header reflects current cart state on first paint.
-const [fontduePreload, cartPreload] = await Promise.all([
+// Astro frontmatter is the SSR data layer — equivalent to Next.js'
+// `async function RootLayout()` server component. The fontdue-js preload
+// helpers and the raw GraphQL fetch run in parallel: there's only one
+// network round-trip's worth of latency for the whole layout.
+const [fontduePreload, cartPreload, layoutData] = await Promise.all([
   loadFontdueProviderQuery(),
   loadCartButtonQuery(),
+  fetchGraphql<RootLayoutQuery>('RootLayout', RootLayoutDoc),
 ]);
+
+const { viewer } = layoutData;
+const settings = viewer.settings;
+const pages = viewer.pages?.edges?.flatMap((edge) =>
+  edge?.node ? [edge.node] : [],
+) ?? [];
+const moreThanOneCollection =
+  (viewer.fontCollections?.edges?.length ?? 0) > 1;
+
+const pageTitle = title
+  ? settings?.title ? `${title} | ${settings.title}` : title
+  : settings?.title ?? 'fontdue-js on Astro';
+
+const path = Astro.url.pathname;
+const isActive = (href: string) => path === href.replace(/\?.+/, '');
+
+const ui = settings?.uiFontStyle;
+const uiSource = ui?.webfontSources?.find((s) => s?.format === 'woff2');
+const uiFontFaceCSS = ui && uiSource?.url
+  ? `@font-face {
+       font-family: "${ui.cssFamily} ${ui.name}";
+       src: url(${uiSource.url}) format("woff2");
+       font-weight: 400; font-style: normal;
+     }
+     body { font-family: "${ui.cssFamily} ${ui.name}", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; }`
+  : '';
 ---
 
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width" />
-    <title>{title}</title>
+    <title>{pageTitle}</title>
+    {settings?.faviconMarkup && <Fragment set:html={settings.faviconMarkup} />}
+    {settings?.htmlHead && <Fragment set:html={settings.htmlHead} />}
+    {uiSource?.url && (
+      <link rel="preload" as="font" type="font/woff2" href={uiSource.url} crossorigin />
+    )}
+    {uiFontFaceCSS && <style is:inline set:html={uiFontFaceCSS} />}
     <style is:global>
-      body { font-family: system-ui, sans-serif; margin: 0; }
+      body { margin: 0; font-family: system-ui, sans-serif; }
       main { max-width: 960px; margin: 0 auto; padding: 2rem; }
       h1 { font-size: 1.5rem; margin-bottom: 1rem; }
       h2 { font-size: 1.125rem; margin-top: 2.5rem; margin-bottom: 0.75rem; }
       .tester { margin-top: 1.5rem; border: 1px solid #eee; padding: 1rem; }
       .site-header {
-        position: sticky;
-        top: 0;
-        background: white;
-        border-bottom: 1px solid #eee;
-        padding: 1rem 2rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
+        position: sticky; top: 0; background: white;
+        border-bottom: 1px solid #eee; padding: 1rem 2rem;
+        display: flex; align-items: center; justify-content: space-between;
         z-index: 10;
       }
-      .site-header__nav { display: flex; gap: 1rem; }
+      .site-header__nav { display: flex; gap: 1rem; align-items: center; }
       .site-header__nav a { color: #333; text-decoration: none; }
       .site-header__nav a:hover { text-decoration: underline; }
+      .site-header__nav a.active { font-weight: 600; }
+      .site-header__logo img { display: block; }
       .site-header__cart .cart-button { all: unset; cursor: pointer; padding: 0.25rem 0.5rem; }
       .site-header__cart .cart-button[data-active='true'] {
         background: #111; color: white; border-radius: 0.25rem;
       }
+      .site-footer {
+        max-width: 960px; margin: 4rem auto 2rem; padding: 0 2rem;
+        color: #666; font-size: 0.875rem;
+      }
+      .site-footer a { color: inherit; }
     </style>
   </head>
   <body>
     <FontdueProvider client:load preloadedQuery={fontduePreload} />
     <StoreModal client:load />
+
     <header class="site-header">
       <nav class="site-header__nav">
-        <a href="/">Home</a>
-        <a href="/fonts/ibm-plex">IBM Plex</a>
-        <a href="/fonts/rubik">Rubik</a>
-        <a href="/test-fonts">Test fonts</a>
+        <a
+          href="/"
+          class:list={['site-header__logo', { active: isActive('/') }]}
+        >
+          {viewer.logo ? (
+            <img
+              src={viewer.logo.url}
+              alt={settings?.title ?? 'Logo'}
+              width={(viewer.logo.meta.width ?? 100) / 2}
+              height={(viewer.logo.meta.height ?? 100) / 2}
+            />
+          ) : (
+            settings?.title ?? 'Home'
+          )}
+        </a>
+        {moreThanOneCollection && (
+          <a href="/" class:list={[{ active: isActive('/') }]}>Fonts</a>
+        )}
+        {pages.map((node) => (
+          <a
+            href={`/${node.slug?.name}`}
+            class:list={[{ active: isActive(`/${node.slug?.name}`) }]}
+          >
+            {node.title}
+          </a>
+        ))}
+        <a href="/test-fonts" class:list={[{ active: isActive('/test-fonts') }]}>
+          Test fonts
+        </a>
       </nav>
       <div class="site-header__cart">
         <CartButton client:load preloadedQuery={cartPreload} suffix=" ({count})" />
       </div>
     </header>
+
     <main>
       <slot />
     </main>
+
+    {settings?.footerText && (
+      <footer class="site-footer">
+        <Fragment set:html={settings.footerText} />
+      </footer>
+    )}
   </body>
 </html>
