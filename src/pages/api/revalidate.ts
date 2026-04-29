@@ -17,9 +17,7 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response('REVALIDATE_TOKEN not configured', { status: 500 });
   }
 
-  const provided =
-    request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ??
-    new URL(request.url).searchParams.get('token');
+  const provided = new URL(request.url).searchParams.get('token');
 
   if (provided !== expected) {
     return new Response('Unauthorized', { status: 401 });

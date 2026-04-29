@@ -159,11 +159,10 @@ Netlify-Cache-Tag: fontdue
 After the SWR window the edge serves the stale copy and regenerates in the background — the user never waits for the upstream GraphQL call. To force a refresh on demand (e.g. when fonts change in your Fontdue admin), call:
 
 ```sh
-curl -X POST https://your-site.netlify.app/api/revalidate \
-  -H "Authorization: Bearer $REVALIDATE_TOKEN"
+curl -X POST "https://your-site.netlify.app/api/revalidate?token=$REVALIDATE_TOKEN"
 ```
 
-`src/pages/api/revalidate.ts` validates the bearer token against `REVALIDATE_TOKEN` and calls Netlify's `purgeCache({ tags: ['fontdue'] })`. Today the Fontdue API doesn't include a collection id/slug in change notifications, so every page is purged together; if/when it does, switch to per-collection tags (`fontdue:${slug}`) and purge selectively.
+`src/pages/api/revalidate.ts` validates the `token` query param against `REVALIDATE_TOKEN` and calls Netlify's `purgeCache({ tags: ['fontdue'] })`. Today the Fontdue API doesn't include a collection id/slug in change notifications, so every page is purged together; if/when it does, switch to per-collection tags (`fontdue:${slug}`) and purge selectively.
 
 ## Status
 
