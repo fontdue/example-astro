@@ -144,8 +144,26 @@ This example is wired for Netlify SSR. To deploy a fork:
    - Build command: `npm run build`
    - Publish directory: `dist`
    - Base directory and Functions directory: leave blank — `@astrojs/netlify` writes the SSR function to the right place automatically.
-2. **Environment variables**: add `PUBLIC_FONTDUE_URL` under Site configuration → Environment variables. `PUBLIC_*` vars are inlined at build time by Vite, so it must be set before the first build runs.
+2. **Environment variables**: add `PUBLIC_FONTDUE_URL` under Site configuration → Environment variables. `PUBLIC_*` vars are inlined at build time by Vite, so it must be set before the first build runs. Also set `REVALIDATE_TOKEN` to a long random string — required by `/api/revalidate` (see below).
 3. **CORS allow-list**: once Netlify gives you the deploy URL (e.g. `https://your-site.netlify.app`), add it to your Fontdue tenant's allowed origins. If you want PR previews to work, allow-list the `https://deploy-preview-*--your-site.netlify.app` pattern too.
+
+## Caching and revalidation
+
+Pages are SSR but cached on Netlify's CDN with stale-while-revalidate, so requests after the first one are served from the edge in milliseconds. `src/middleware.ts` sets:
+
+```
+Netlify-CDN-Cache-Control: public, max-age=0, s-maxage=300, stale-while-revalidate=86400
+Netlify-Cache-Tag: fontdue
+```
+
+After the SWR window the edge serves the stale copy and regenerates in the background — the user never waits for the upstream GraphQL call. To force a refresh on demand (e.g. when fonts change in your Fontdue admin), call:
+
+```sh
+curl -X POST https://your-site.netlify.app/api/revalidate \
+  -H "Authorization: Bearer $REVALIDATE_TOKEN"
+```
+
+`src/pages/api/revalidate.ts` validates the bearer token against `REVALIDATE_TOKEN` and calls Netlify's `purgeCache({ tags: ['fontdue'] })`. Today the Fontdue API doesn't include a collection id/slug in change notifications, so every page is purged together; if/when it does, switch to per-collection tags (`fontdue:${slug}`) and purge selectively.
 
 ## Status
 

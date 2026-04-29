@@ -1,6 +1,4 @@
 ---
-export const prerender = true;
-
 import Layout from '../../layouts/Layout.astro';
 import TypeTesters, { loadTypeTestersQuery } from 'fontdue-js/TypeTesters';
 import CharacterViewer, {
@@ -9,23 +7,10 @@ import CharacterViewer, {
 import BuyButton, { loadBuyButtonQuery } from 'fontdue-js/BuyButton';
 import { fetchGraphql } from '../../lib/graphql';
 import FontDoc from '../../queries/Font.graphql?raw';
-import IndexDoc from '../../queries/Index.graphql?raw';
-import type {
-  FontQuery,
-  FontQueryVariables,
-  IndexQuery,
-} from '../../queries/operations-types';
+import type { FontQuery, FontQueryVariables } from '../../queries/operations-types';
 
-export async function getStaticPaths() {
-  const data = await fetchGraphql<IndexQuery>('Index', IndexDoc);
-  return (
-    data.viewer.fontCollections?.edges?.flatMap((edge) =>
-      edge?.node?.slug?.name ? [{ params: { slug: edge.node.slug.name } }] : [],
-    ) ?? []
-  );
-}
-
-const { slug } = Astro.params as { slug: string };
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/');
 
 // Server-preloaded fontdue-js queries hydrate the islands; the GraphQL
 // fetch supplies the page chrome (title, description, hero image, buy
@@ -44,7 +29,7 @@ const [
 
 const collection = fontData.viewer.slug?.fontCollection;
 if (!collection) {
-  throw new Error(`No collection for slug "${slug}" — getStaticPaths and Font query are out of sync`);
+  return new Response('Not found', { status: 404 });
 }
 
 const feature = collection.featureStyle;
