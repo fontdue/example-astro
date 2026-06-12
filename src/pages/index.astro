@@ -2,6 +2,7 @@
 import TypeTester, { loadTypeTesterQuery } from 'fontdue-js/TypeTester';
 import Layout from '../layouts/Layout.astro';
 import { fetchGraphql } from '../lib/graphql';
+import { fontdueConfig } from '../lib/fontdue';
 import IndexDoc from '../queries/Index.graphql?raw';
 import type { IndexQuery } from '../queries/operations-types';
 
@@ -85,6 +86,7 @@ const featureFontFaces = collections
             preloadedQuery={testerPreloads[i]}
             content={`The quick brown fox jumps over the lazy dog`}
             fontSize={48}
+            config={fontdueConfig}
           />
         </div>
       ))}

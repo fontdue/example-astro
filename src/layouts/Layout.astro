@@ -2,7 +2,7 @@
 import 'fontdue-js/fontdue.css';
 import FontdueProvider, { loadFontdueProviderQuery } from 'fontdue-js/FontdueProvider';
 import StoreModal from 'fontdue-js/StoreModal';
-import CartButton, { loadCartButtonQuery } from 'fontdue-js/CartButton';
+import CartButton from 'fontdue-js/CartButton';
 import { fetchGraphql } from '../lib/graphql';
 import RootLayoutDoc from '../queries/RootLayout.graphql?raw';
 import type { RootLayoutQuery } from '../queries/operations-types';
@@ -17,9 +17,8 @@ const { title } = Astro.props;
 // `async function RootLayout()` server component. The fontdue-js preload
 // helpers and the raw GraphQL fetch run in parallel: there's only one
 // network round-trip's worth of latency for the whole layout.
-const [fontduePreload, cartPreload, layoutData] = await Promise.all([
+const [fontduePreload, layoutData] = await Promise.all([
   loadFontdueProviderQuery(),
-  loadCartButtonQuery(),
   fetchGraphql<RootLayoutQuery>('RootLayout', RootLayoutDoc),
 ]);
 
@@ -126,7 +125,7 @@ const uiFontFaceCSS = ui && uiSource?.url
         </a>
       </nav>
       <div class="site-header__cart">
-        <CartButton client:load preloadedQuery={cartPreload} suffix=" ({count})" />
+        <CartButton client:load suffix=" ({count})" />
       </div>
     </header>
 
