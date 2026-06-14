@@ -4,7 +4,7 @@ import TestFontsForm, { loadTestFontsFormQuery } from 'fontdue-js/TestFontsForm'
 import NewsletterSignup, {
   loadNewsletterSignupQuery,
 } from 'fontdue-js/NewsletterSignup';
-// This page only preloads fontdue-js components. When staff are previewing,
+// This page only preloads fontdue-js components. When an admin is previewing,
 // these reveal unpublished fonts too — preview rides the ambient context set by
 // src/middleware.ts, so nothing is threaded here.
 const [testFontsPreload, newsletterPreload] = await Promise.all([

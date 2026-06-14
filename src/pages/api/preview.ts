@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { handlePreviewRequest } from 'fontdue-js/preview';
 
 // Preview enter/exit. The Fontdue admin toolbar — shown only to logged-in
-// staff by <FontdueProvider> — POSTs a short-lived token here to turn preview
+// admins by <FontdueProvider> — POSTs a short-lived token here to turn preview
 // on, and DELETEs to turn it off. handlePreviewRequest sets the preview
 // cookies (an httpOnly token + a readable marker that the toolbar checks);
 // src/middleware.ts wraps each request in runWithPreview, which forwards the

@@ -4,11 +4,11 @@ import { runWithPreview } from 'fontdue-js/preview/server';
 
 // Two responsibilities, both per request:
 //
-// 1. Preview. runWithPreview puts the logged-in staff member's token (from the
+// 1. Preview. runWithPreview puts the logged-in admin's token (from the
 //    preview cookie) into an ambient context for the whole render, so every
 //    GraphQL fetch and fontdue-js preload reveals unpublished ("hidden") fonts
 //    with no per-page plumbing — and it forces preview responses out of the
-//    shared cache so a staff render is never served to the public. (This relies
+//    shared cache so an admin render is never served to the public. (This relies
 //    on middleware running in the same runtime as the render, which is the
 //    default. If you set `edgeMiddleware: true`, the context can't cross to the
 //    render — fall back to reading the token here and threading
