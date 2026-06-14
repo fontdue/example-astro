@@ -5,10 +5,11 @@ import { handlePreviewRequest } from 'fontdue-js/preview';
 // staff by <FontdueProvider> — POSTs a short-lived token here to turn preview
 // on, and DELETEs to turn it off. handlePreviewRequest sets the preview
 // cookies (an httpOnly token + a readable marker that the toolbar checks);
-// src/middleware.ts reads the token on each request, forwards it to GraphQL,
-// and keeps preview pages out of the shared CDN cache so the public never sees
-// unpublished fonts. The default path is /api/preview — to use another path,
-// set config.preview.endpoint on <FontdueProvider> and rename this file.
+// src/middleware.ts wraps each request in runWithPreview, which forwards the
+// token to GraphQL and keeps preview pages out of the shared CDN cache so the
+// public never sees unpublished fonts. The default path is /api/preview — to
+// use another path, set config.preview.endpoint on <FontdueProvider> and
+// rename this file.
 export const ALL: APIRoute = ({ request }) => handlePreviewRequest(request);
 
 // Must run per request to set cookies — never prerender this route.

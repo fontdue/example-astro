@@ -4,15 +4,12 @@ import TestFontsForm, { loadTestFontsFormQuery } from 'fontdue-js/TestFontsForm'
 import NewsletterSignup, {
   loadNewsletterSignupQuery,
 } from 'fontdue-js/NewsletterSignup';
-import { fontdueGraphql } from '../lib/graphql';
-
-// This page only preloads fontdue-js components; `preview` forwards the staff
-// token (when previewing) so unpublished fonts show up here too.
-const { preview } = fontdueGraphql(Astro.locals);
-
+// This page only preloads fontdue-js components. When staff are previewing,
+// these reveal unpublished fonts too — preview rides the ambient context set by
+// src/middleware.ts, so nothing is threaded here.
 const [testFontsPreload, newsletterPreload] = await Promise.all([
-  loadTestFontsFormQuery(preview),
-  loadNewsletterSignupQuery(preview),
+  loadTestFontsFormQuery(),
+  loadNewsletterSignupQuery(),
 ]);
 ---
 

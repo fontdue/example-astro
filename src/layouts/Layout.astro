@@ -3,7 +3,7 @@ import 'fontdue-js/fontdue.css';
 import FontdueProvider, { loadFontdueProviderQuery } from 'fontdue-js/FontdueProvider';
 import StoreModal from 'fontdue-js/StoreModal';
 import CartButton from 'fontdue-js/CartButton';
-import { fontdueGraphql } from '../lib/graphql';
+import { fetchGraphql } from '../lib/graphql';
 import RootLayoutDoc from '../queries/RootLayout.graphql?raw';
 import type { RootLayoutQuery } from '../queries/operations-types';
 
@@ -13,17 +13,14 @@ interface Props {
 
 const { title } = Astro.props;
 
-// A request-bound fetcher. When staff are previewing it carries their token, so
-// the layout and its fontdue-js components reveal unpublished fonts; for the
-// public it's a plain fetch. `preview` is the matching headers for preloads.
-const { fetchGraphql, preview } = fontdueGraphql(Astro.locals);
-
 // Astro frontmatter is the SSR data layer — equivalent to Next.js'
 // `async function RootLayout()` server component. The fontdue-js preload
-// helpers and the raw GraphQL fetch run in parallel: there's only one
-// network round-trip's worth of latency for the whole layout.
+// helper and the raw GraphQL fetch run in parallel: there's only one
+// network round-trip's worth of latency for the whole layout. When staff are
+// previewing, both automatically reveal unpublished fonts — the token rides the
+// ambient context set by src/middleware.ts, so nothing is threaded here.
 const [fontduePreload, layoutData] = await Promise.all([
-  loadFontdueProviderQuery(preview),
+  loadFontdueProviderQuery(),
   fetchGraphql<RootLayoutQuery>('RootLayout', RootLayoutDoc),
 ]);
 
