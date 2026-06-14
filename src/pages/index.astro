@@ -1,10 +1,13 @@
 ---
 import TypeTester, { loadTypeTesterQuery } from 'fontdue-js/TypeTester';
 import Layout from '../layouts/Layout.astro';
-import { fetchGraphql } from '../lib/graphql';
+import { fontdueGraphql } from '../lib/graphql';
 import { fontdueConfig } from '../lib/fontdue';
 import IndexDoc from '../queries/Index.graphql?raw';
 import type { IndexQuery } from '../queries/operations-types';
+
+// Request-bound fetcher; in preview it lists unpublished collections too.
+const { fetchGraphql, preview } = fontdueGraphql(Astro.locals);
 
 // Frontmatter is the SSR data layer: a regular GraphQL fetch and the
 // fontdue-js Relay preloads run together in one Promise.all. The Relay
@@ -25,10 +28,13 @@ const testerCollections = collections
 
 const testerPreloads = await Promise.all(
   testerCollections.map((c) =>
-    loadTypeTesterQuery({
-      familyName: c.featureStyle!.cssFamily!,
-      styleName: c.featureStyle!.name!,
-    }),
+    loadTypeTesterQuery(
+      {
+        familyName: c.featureStyle!.cssFamily!,
+        styleName: c.featureStyle!.name!,
+      },
+      preview,
+    ),
   ),
 );
 

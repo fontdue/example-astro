@@ -1,4 +1,5 @@
 import { defineMiddleware } from 'astro:middleware';
+import { readPreviewToken } from 'fontdue-js/preview';
 
 // CDN-side caching for SSR pages. Netlify's edge serves the cached HTML
 // instantly while regenerating in the background, so the page feels
@@ -11,6 +12,14 @@ import { defineMiddleware } from 'astro:middleware';
 // so the /api/revalidate endpoint can purge them all at once when
 // Fontdue data changes.
 export const onRequest = defineMiddleware(async (context, next) => {
+  // Preview: surface the staff token (if any) to every page's data layer, so
+  // its GraphQL fetches can forward it and reveal unpublished fonts. Read once
+  // here, per request, instead of in each page.
+  context.locals.fontduePreviewToken = readPreviewToken(
+    context.request.headers.get('cookie'),
+  );
+  const previewing = context.locals.fontduePreviewToken != null;
+
   const response = await next();
 
   if (
@@ -18,6 +27,14 @@ export const onRequest = defineMiddleware(async (context, next) => {
     context.url.pathname.startsWith('/api/') ||
     !response.headers.get('content-type')?.includes('text/html')
   ) {
+    return response;
+  }
+
+  // A staff preview reveals hidden fonts — it must never be written to the
+  // shared CDN cache, or the public could be served a revealed page. Keep
+  // preview renders private and uncached; only public renders get cached.
+  if (previewing) {
+    response.headers.set('Cache-Control', 'private, no-store');
     return response;
   }
 

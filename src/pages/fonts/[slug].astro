@@ -5,12 +5,16 @@ import CharacterViewer, {
   loadCharacterViewerQuery,
 } from 'fontdue-js/CharacterViewer';
 import BuyButton, { loadBuyButtonQuery } from 'fontdue-js/BuyButton';
-import { fetchGraphql } from '../../lib/graphql';
+import { fontdueGraphql } from '../../lib/graphql';
 import FontDoc from '../../queries/Font.graphql?raw';
 import type { FontQuery, FontQueryVariables } from '../../queries/operations-types';
 
 const { slug } = Astro.params;
 if (!slug) return Astro.redirect('/');
+
+// Request-bound fetcher; in preview this page resolves even for an unpublished
+// collection and its islands reveal unpublished styles.
+const { fetchGraphql, preview } = fontdueGraphql(Astro.locals);
 
 // Server-preloaded fontdue-js queries hydrate the islands; the GraphQL
 // fetch supplies the page chrome (title, description, hero image, buy
@@ -22,9 +26,9 @@ const [
   buyButtonPreload,
 ] = await Promise.all([
   fetchGraphql<FontQuery, FontQueryVariables>('Font', FontDoc, { slug }),
-  loadTypeTestersQuery({ collectionSlug: slug }),
-  loadCharacterViewerQuery({ collectionSlug: slug }),
-  loadBuyButtonQuery({ collectionSlug: slug }),
+  loadTypeTestersQuery({ collectionSlug: slug }, preview),
+  loadCharacterViewerQuery({ collectionSlug: slug }, preview),
+  loadBuyButtonQuery({ collectionSlug: slug }, preview),
 ]);
 
 const collection = fontData.viewer.slug?.fontCollection;
