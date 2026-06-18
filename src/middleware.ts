@@ -1,19 +1,38 @@
 import { defineMiddleware } from 'astro:middleware';
+import { readPreviewToken } from 'fontdue-js/preview';
+import { runWithPreview } from 'fontdue-js/preview/server';
 
-// CDN-side caching for SSR pages. Netlify's edge serves the cached HTML
-// instantly while regenerating in the background, so the page feels
-// static (sub-100ms TTFB) without prerendering. `durable` opts into
-// Netlify's Durable Cache so the cached HTML persists across deploys and
-// regions (the regular edge cache is per-node and volatile) — this is what
-// makes the stale-while-revalidate window behave like real ISR. Browsers
-// always revalidate (`max-age=0`) so users see whatever the edge currently
-// holds — never a locally-cached copy. Tag every page with `fontdue`
-// so the /api/revalidate endpoint can purge them all at once when
-// Fontdue data changes.
+// Two responsibilities, both per request:
+//
+// 1. Preview. runWithPreview puts the logged-in admin's token (from the
+//    preview cookie) into an ambient context for the whole render, so every
+//    GraphQL fetch and fontdue-js preload reveals unpublished ("hidden") fonts
+//    with no per-page plumbing — and it forces preview responses out of the
+//    shared cache so an admin render is never served to the public. (This relies
+//    on middleware running in the same runtime as the render, which is the
+//    default. If you set `edgeMiddleware: true`, the context can't cross to the
+//    render — fall back to reading the token here and threading
+//    previewAuthHeaders(token) into fetches/preloads explicitly.)
+//
+// 2. CDN caching for public pages. Netlify's edge serves the cached HTML
+//    instantly while regenerating in the background, so the page feels static
+//    (sub-100ms TTFB) without prerendering. `durable` opts into Netlify's
+//    Durable Cache so the cached HTML persists across deploys and regions (the
+//    regular edge cache is per-node and volatile) — this is what makes the
+//    stale-while-revalidate window behave like real ISR. Browsers always
+//    revalidate (`max-age=0`) so users see whatever the edge currently holds.
+//    Tag every page with `fontdue` so /api/revalidate can purge them all at
+//    once when Fontdue data changes.
 export const onRequest = defineMiddleware(async (context, next) => {
-  const response = await next();
+  const previewing =
+    readPreviewToken(context.request.headers.get('cookie')) != null;
 
+  const response = await runWithPreview(context.request, next);
+
+  // Only public, non-preview HTML gets the long-lived CDN cache. Preview
+  // responses were already marked uncacheable by runWithPreview.
   if (
+    previewing ||
     response.status !== 200 ||
     context.url.pathname.startsWith('/api/') ||
     !response.headers.get('content-type')?.includes('text/html')

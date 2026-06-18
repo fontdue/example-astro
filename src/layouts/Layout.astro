@@ -15,8 +15,10 @@ const { title } = Astro.props;
 
 // Astro frontmatter is the SSR data layer — equivalent to Next.js'
 // `async function RootLayout()` server component. The fontdue-js preload
-// helpers and the raw GraphQL fetch run in parallel: there's only one
-// network round-trip's worth of latency for the whole layout.
+// helper and the raw GraphQL fetch run in parallel: there's only one
+// network round-trip's worth of latency for the whole layout. When an admin is
+// previewing, both automatically reveal unpublished fonts — the token rides the
+// ambient context set by src/middleware.ts, so nothing is threaded here.
 const [fontduePreload, layoutData] = await Promise.all([
   loadFontdueProviderQuery(),
   fetchGraphql<RootLayoutQuery>('RootLayout', RootLayoutDoc),

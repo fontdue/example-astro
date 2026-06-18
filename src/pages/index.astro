@@ -9,7 +9,8 @@ import type { IndexQuery } from '../queries/operations-types';
 // Frontmatter is the SSR data layer: a regular GraphQL fetch and the
 // fontdue-js Relay preloads run together in one Promise.all. The Relay
 // payloads hydrate the islands without an extra round-trip; the GraphQL
-// data drives the static markup of the page.
+// data drives the static markup of the page. In preview, both reveal
+// unpublished fonts automatically (see src/lib/graphql.ts).
 const indexData = await fetchGraphql<IndexQuery>('Index', IndexDoc);
 
 const collections =
