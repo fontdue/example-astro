@@ -162,6 +162,14 @@ export type UpdateOrderInput = {
   stripePaymentMethodId: InputMaybe<Scalars['String']['input']>;
 };
 
+export type UpdateOrderTrackingInput = {
+  analyticsConsent: InputMaybe<Scalars['Boolean']['input']>;
+  anonymousId: InputMaybe<Scalars['String']['input']>;
+  fbc: InputMaybe<Scalars['String']['input']>;
+  fbp: InputMaybe<Scalars['String']['input']>;
+  url: InputMaybe<Scalars['String']['input']>;
+};
+
 export type UpdateWebfontDomainsInput = {
   hosts: Array<Scalars['String']['input']>;
 };
