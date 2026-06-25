@@ -1,18 +1,22 @@
 import { defineMiddleware } from 'astro:middleware';
 import { readPreviewToken } from 'fontdue-js/preview';
-import { runWithPreview } from 'fontdue-js/preview/server';
+import { runWithFontdue } from 'fontdue-js/server/middleware';
 
 // Two responsibilities, both per request:
 //
-// 1. Preview. runWithPreview puts the logged-in admin's token (from the
-//    preview cookie) into an ambient context for the whole render, so every
-//    GraphQL fetch and fontdue-js preload reveals unpublished ("hidden") fonts
-//    with no per-page plumbing — and it forces preview responses out of the
-//    shared cache so an admin render is never served to the public. (This relies
-//    on middleware running in the same runtime as the render, which is the
-//    default. If you set `edgeMiddleware: true`, the context can't cross to the
-//    render — fall back to reading the token here and threading
-//    previewAuthHeaders(token) into fetches/preloads explicitly.)
+// 1. Fontdue request context. runWithFontdue puts two request-scoped tokens
+//    into an ambient context for the whole render: the logged-in admin's preview
+//    token (reveals unpublished "hidden" fonts) and the visitor's per-collection
+//    node-access token (a collection they unlocked with a password). Every
+//    GraphQL fetch and fontdue-js preload forwards them with no per-page
+//    plumbing, and it forces a per-visitor response out of the shared cache so
+//    an admin's — or an unlocked visitor's — render is never served to the
+//    public. (runWithFontdue is runWithPreview composed with runWithNodeAccess;
+//    mount either alone if you only need one.) This relies on middleware running
+//    in the same runtime as the render, which is the default. If you set
+//    `edgeMiddleware: true`, the context can't cross to the render — fall back to
+//    reading the cookies here and threading previewAuthHeaders(token) /
+//    nodeAccessHeadersFromCookie(cookie) into fetches/preloads explicitly.
 //
 // 2. CDN caching for public pages. Netlify's edge serves the cached HTML
 //    instantly while regenerating in the background, so the page feels static
@@ -27,9 +31,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const previewing =
     readPreviewToken(context.request.headers.get('cookie')) != null;
 
-  const response = await runWithPreview(context.request, next);
+  const response = await runWithFontdue(context.request, next);
 
-  // Only public HTML gets the long-lived CDN cache. runWithPreview already
+  // Only public HTML gets the long-lived CDN cache. runWithFontdue already
   // marked per-visitor responses (admin preview, or a collection this visitor
   // unlocked via the node-access cookie) `no-store`; don't override that, or an
   // unlocked render could be cached and served to someone who hasn't unlocked.
