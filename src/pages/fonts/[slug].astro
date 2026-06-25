@@ -5,6 +5,8 @@ import CharacterViewer, {
   loadCharacterViewerQuery,
 } from 'fontdue-js/CharacterViewer';
 import BuyButton, { loadBuyButtonQuery } from 'fontdue-js/BuyButton';
+import NodePasswordForm from 'fontdue-js/NodePasswordForm';
+import { FontduePasswordProtectedError } from 'fontdue-js/server';
 import { fetchGraphql } from '../../lib/graphql';
 import FontDoc from '../../queries/Font.graphql?raw';
 import type { FontQuery, FontQueryVariables } from '../../queries/operations-types';
@@ -18,24 +20,43 @@ if (!slug) return Astro.redirect('/');
 // this page resolves even for an unpublished collection and its islands
 // reveal unpublished styles — preview rides the ambient context, so nothing
 // is threaded here (see src/lib/graphql.ts).
-const [
-  fontData,
-  typeTestersPreload,
-  characterViewerPreload,
-  buyButtonPreload,
-] = await Promise.all([
-  fetchGraphql<FontQuery, FontQueryVariables>('Font', FontDoc, { slug }),
-  loadTypeTestersQuery({ collectionSlug: slug }),
-  loadCharacterViewerQuery({ collectionSlug: slug }),
-  loadBuyButtonQuery({ collectionSlug: slug }),
-]);
+//
+// A password-protected collection the visitor hasn't unlocked throws
+// FontduePasswordProtectedError — render the password form island instead of a
+// 404. The node-access token the form stores then rides the ambient context
+// (src/middleware.ts) on reload, just like preview, and the collection resolves.
+let locked = false;
+let collection: NonNullable<
+  FontQuery['viewer']['slug']
+>['fontCollection'] = null;
+let typeTestersPreload;
+let characterViewerPreload;
+let buyButtonPreload;
 
-const collection = fontData.viewer.slug?.fontCollection;
-if (!collection) {
+try {
+  const [fontData, tt, cv, bb] = await Promise.all([
+    fetchGraphql<FontQuery, FontQueryVariables>('Font', FontDoc, { slug }),
+    loadTypeTestersQuery({ collectionSlug: slug }),
+    loadCharacterViewerQuery({ collectionSlug: slug }),
+    loadBuyButtonQuery({ collectionSlug: slug }),
+  ]);
+  collection = fontData.viewer.slug?.fontCollection ?? null;
+  typeTestersPreload = tt;
+  characterViewerPreload = cv;
+  buyButtonPreload = bb;
+} catch (error) {
+  if (error instanceof FontduePasswordProtectedError) {
+    locked = true;
+  } else {
+    throw error;
+  }
+}
+
+if (!locked && !collection) {
   return new Response('Not found', { status: 404 });
 }
 
-const feature = collection.featureStyle;
+const feature = collection?.featureStyle;
 const featureSrc = feature?.webfontSources?.find((s) => s?.format === 'woff2');
 const featureFontFace = feature && featureSrc?.url
   ? `@font-face {
@@ -45,72 +66,88 @@ const featureFontFace = feature && featureSrc?.url
     }`
   : '';
 
-const heroImage = collection.images?.find((img) => img && img.url);
-const pageTitle = collection.pageMetadata?.title ?? collection.name;
+const heroImage = collection?.images?.find((img) => img && img.url);
+const pageTitle = locked
+  ? 'Password required'
+  : (collection?.pageMetadata?.title ?? collection?.name);
 ---
 
 <Layout title={pageTitle}>
-  {featureFontFace && <style is:inline set:html={featureFontFace} />}
-
-  <h1
-    class="font-detail__title"
-    style={feature ? `font-family: "${feature.cssFamily} ${feature.name}", system-ui, sans-serif;` : ''}
-  >
-    {collection.name}
-    {collection.collectionType === 'superfamily' && ' Collection'}
-  </h1>
-
-  {collection.shortDescription && (
-    <p class="font-detail__short">{collection.shortDescription}</p>
+  {locked && (
+    <>
+      <h1 class="font-detail__title">Password required</h1>
+      <p class="font-detail__short">
+        This collection is password-protected. Enter the password to view it.
+      </p>
+      <NodePasswordForm client:load collectionSlug={slug} />
+    </>
   )}
 
-  {heroImage && (
-    <figure class="font-detail__hero">
-      {heroImage.meta?.mimeType === 'video/mp4' ? (
-        <video src={heroImage.url!} playsinline muted autoplay loop />
-      ) : (
-        <img
-          src={heroImage.url!}
-          width={heroImage.meta?.width ?? undefined}
-          height={heroImage.meta?.height ?? undefined}
-          alt={heroImage.description ?? ''}
-        />
+  {collection && (
+    <>
+      {featureFontFace && <style is:inline set:html={featureFontFace} />}
+
+      <h1
+        class="font-detail__title"
+        style={feature ? `font-family: "${feature.cssFamily} ${feature.name}", system-ui, sans-serif;` : ''}
+      >
+        {collection.name}
+        {collection.collectionType === 'superfamily' && ' Collection'}
+      </h1>
+
+      {collection.shortDescription && (
+        <p class="font-detail__short">{collection.shortDescription}</p>
       )}
-    </figure>
+
+      {heroImage && (
+        <figure class="font-detail__hero">
+          {heroImage.meta?.mimeType === 'video/mp4' ? (
+            <video src={heroImage.url!} playsinline muted autoplay loop />
+          ) : (
+            <img
+              src={heroImage.url!}
+              width={heroImage.meta?.width ?? undefined}
+              height={heroImage.meta?.height ?? undefined}
+              alt={heroImage.description ?? ''}
+            />
+          )}
+        </figure>
+      )}
+
+      <div class="font-detail__buy">
+        <BuyButton
+          client:load
+          preloadedQuery={buyButtonPreload!}
+          collectionName={collection.name}
+        />
+        {collection.minisiteLink && (
+          <a href={collection.minisiteLink} target="_blank" rel="noopener">
+            {collection.name} Minisite
+          </a>
+        )}
+      </div>
+
+      <h2>TypeTesters</h2>
+      <div class="tester">
+        <TypeTesters
+          client:load
+          preloadedQuery={typeTestersPreload!}
+          defaultMode="local"
+        />
+      </div>
+
+      {collection.description && (
+        <section class="font-detail__description">
+          <Fragment set:html={collection.description} />
+        </section>
+      )}
+
+      <h2>Character viewer</h2>
+      <div class="tester">
+        <CharacterViewer client:load preloadedQuery={characterViewerPreload!} />
+      </div>
+    </>
   )}
-
-  <div class="font-detail__buy">
-    <BuyButton
-      client:load
-      preloadedQuery={buyButtonPreload}
-      collectionName={collection.name}
-    />
-    {collection.minisiteLink && (
-      <a href={collection.minisiteLink} target="_blank" rel="noopener">
-        {collection.name} Minisite
-      </a>
-    )}
-  </div>
-
-  <h2>TypeTesters</h2>
-  <div class="tester">
-    <TypeTesters
-      client:load
-      preloadedQuery={typeTestersPreload}
-      defaultMode="local"
-    />
-  </div>
-
-  {collection.description && (
-    <section class="font-detail__description">
-      <Fragment set:html={collection.description} />
-    </section>
-  )}
-
-  <h2>Character viewer</h2>
-  <div class="tester">
-    <CharacterViewer client:load preloadedQuery={characterViewerPreload} />
-  </div>
 </Layout>
 
 <style>
