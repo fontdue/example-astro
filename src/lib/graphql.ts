@@ -5,11 +5,12 @@ import { createFontdueFetch, FontdueNotFoundError } from 'fontdue-js/server';
 // error handling, so there's no transport boilerplate at the call sites.
 //
 // There's no per-request binding: because src/middleware.ts wraps every request
-// in runWithPreview, this fetcher automatically forwards the admin preview token
-// when an admin is previewing (revealing unpublished fonts), and sends a
-// plain request otherwise. The same is true of every fontdue-js preload helper
+// in runWithFontdue, this fetcher automatically forwards the admin preview token
+// when an admin is previewing (revealing unpublished fonts) and the visitor's
+// node-access token for a collection they've unlocked, and sends a plain request
+// otherwise. The same is true of every fontdue-js preload helper
 // (loadTypeTesterQuery, loadFontdueProviderQuery, …) — call them with just their
-// variables and they pick up preview from the ambient context.
+// variables and they pick up the ambient context.
 //
 // Use it at the top of a page's frontmatter:
 //
